@@ -6,7 +6,10 @@ class TorqueDataConnectHooks {
 	}
 
 	public static function loadLocation($parser, $location, $view = false) {
-  	$parser->disableCache();
+    $parser->disableCache();
+    $po = $parser->getOutput();
+    $po->addModules('ext.torquedataconnect.js');
+    $po->addModuleStyles('ext.torquedataconnect.css');
 
     global $wgTorqueDataConnectGroup, $wgTorqueDataConnectRenderToHTML, $wgTorqueDataConnectView,
       $wgTorqueDataConnectRaw, $wgTorqueDataConnectWikiKey;
