@@ -1,9 +1,11 @@
+from datetime import datetime
 from torquedata import *
 from jinja2 import Template
 from flask import request, send_file, abort
 from werkzeug.utils import secure_filename
 
 import threading
+import flask
 import json
 import os
 import re
@@ -109,20 +111,44 @@ def sheet_toc(sheet_name, toc_name, fmt):
     else:
         raise Exception("Only mwiki format valid for toc")
 
+
+def is_valid_id(group, wiki_key, key):
+    if wiki_key in permissions[sheet_name].keys() and group in permissions[sheet_name][wiki_key].keys():
+        if "valid_ids" not in permissions[sheet_name][wiki_key][group].keys():
+            return True
+        else:
+            return (key in permissions[sheet_name][wiki_key][group]["valid_ids"])
+
+
+@app.route('/api/<sheet_name>/edit-record/<key>', methods=['POST'])
+def edit_record(sheet_name, key):
+    group = request.json.get("group")
+    wiki_key = request.json.get("wiki_key")
+    new_values = json.loads(request.json.get("new_values"))
+
+    if not is_valid_id(group, wiki_key, key):
+        abort(403)
+
+    for field, val in new_values.items():
+        edit = {
+            "new_value": val,
+            "edit_message": "",
+            "edit_timestamp": datetime.datetime.now(),
+            "editor": group,
+            "approver": None,
+            "approval_code": None,
+            "approval_timestamp": None,
+        }
+        edits[sheet_name][key][field]["edits"].append(edit)
+    return flask.Response(status=201)
+
+
 @app.route('/api/<sheet_name>/id/<key>.<fmt>')
 def row(sheet_name, key, fmt):
     group = request.args.get("group")
     wiki_key = request.args.get("wiki_key")
 
-    valid_id = False
-
-    if wiki_key in permissions[sheet_name].keys() and group in permissions[sheet_name][wiki_key].keys():
-        if "valid_ids" not in permissions[sheet_name][wiki_key][group].keys():
-            valid_id = True
-        else:
-            valid_id = (key in permissions[sheet_name][wiki_key][group]["valid_ids"])
-
-    if not valid_id:
+    if not is_valid_id(group, wiki_key, key):
         if fmt == "json":
             return json.dumps({"error": "Invalid " + sheet_config[sheet_name]["key_column"]})
         else:
@@ -132,6 +158,8 @@ def row(sheet_name, key, fmt):
 
     if "columns" in permissions[sheet_name][wiki_key][group]:
         row = cull_invalid_columns(row, permissions[sheet_name][wiki_key][group]["columns"])
+
+    row = update_row_with_edits(row, sheet_name, key)
 
     if fmt == "json":
         return json.dumps(row)
