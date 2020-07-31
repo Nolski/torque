@@ -108,26 +108,37 @@ def sheet_toc(sheet_name, toc_name, fmt):
     else:
         raise Exception("Only mwiki format valid for toc")
 
+
+def is_valid_id(group, wiki_key, key):
+    if wiki_key in permissions[sheet_name].keys() and group in permissions[sheet_name][wiki_key].keys():
+        if "valid_ids" not in permissions[sheet_name][wiki_key][group].keys():
+            return True
+        else:
+            return (key in permissions[sheet_name][wiki_key][group]["valid_ids"])
+
+
+@app.route('/api/<sheet_name>/edit-record/<key>', methods=['POST'])
+def edit_record(sheet_name, key):
+    group = request.json.get("group")
+    wiki_key = request.json.get("wiki_key")
+
+    if not is_valid_id(group, wiki_key, key):
+        abort(403)
+
+
 @app.route('/api/<sheet_name>/id/<key>.<fmt>')
 def row(sheet_name, key, fmt):
     group = request.args.get("group")
     wiki_key = request.args.get("wiki_key")
 
-    valid_id = False
-
-    if wiki_key in permissions[sheet_name].keys() and group in permissions[sheet_name][wiki_key].keys():
-        if "valid_ids" not in permissions[sheet_name][wiki_key][group].keys():
-            valid_id = True
-        else:
-            valid_id = (key in permissions[sheet_name][wiki_key][group]["valid_ids"])
-
-    if not valid_id:
+    if not is_valid_id(group, wiki_key, key):
         if fmt == "json":
             return json.dumps({"error": "Invalid " + sheet_config[sheet_name]["key_column"]})
         else:
             abort(403, "Invalid " + sheet_config[sheet_name]["key_column"]);
 
     row = data[sheet_name][key]
+    # import ipdb; ipdb.set_trace()
 
     if "columns" in permissions[sheet_name][wiki_key][group]:
         row = cull_invalid_columns(row, permissions[sheet_name][wiki_key][group]["columns"])

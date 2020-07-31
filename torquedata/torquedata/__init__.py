@@ -38,6 +38,7 @@ except Exception:
     attachment_config = {}
 
 data = {}
+edits = {}
 indices = {}
 def cull_invalid_columns(o, valid_fields):
     return {k:v for (k,v) in o.items() if (k in valid_fields)}
@@ -97,6 +98,7 @@ def index_search(group, sheet_name, wiki_key):
 
 def load_sheet(sheet_name):
     data[sheet_name] = {}
+    edits[sheet_name] = {}
     reader = csv.reader(
             open(os.path.join(app.config.get("SPREADSHEET_FOLDER"), sheet_name, sheet_name + ".csv"), encoding='utf-8'),
             delimiter=',',
@@ -129,6 +131,7 @@ def load_sheet(sheet_name):
                     cell = json.loads(cell)
             o[field] = cell
         data[sheet_name][o[sheet_config[sheet_name]["key_column"]]] = o
+        edits[sheet_name][o[sheet_config[sheet_name]["key_column"]]] = [] 
 
     for wiki_key in permissions[sheet_name].keys():
         for group in permissions[sheet_name][wiki_key].keys():
